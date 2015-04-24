@@ -1,4 +1,5 @@
-﻿Public Class Form1
+﻿
+Public Class Form1
     Private url As String = "http://192.168.121.87"
     Private error_uri As Uri = New Uri("about:blank")
     Private statuscode As String
@@ -6,9 +7,17 @@
     Private debugIP As String = "192.168.121.87"
     Private brows_flg As Boolean = True
     Private sendmail_flg As Boolean = True
+    Private sender_address As String = "t.uehara@showa-aircraft.co.jp"
     Private mail_address As String = "t.uehara@showa-aircraft.co.jp"
+    Private mail_title As String = "solar power display admin mail"
     Private start_h As Int32 = 7
     Private stop_h As Int32 = 19
+    Private savedCursor As Icon
+
+    Private Sub Form1_Disposed(sender As Object, e As EventArgs) Handles Me.Disposed
+        'PictureBox1から出たらカーソルを表示にする 
+        System.Windows.Forms.Cursor.Show()
+    End Sub
 
     Private Sub Form1_Load(ByVal sender As Object, ByVal e As EventArgs) Handles MyBase.Load
 
@@ -39,6 +48,8 @@
 
         'カーソルを非表示にする 
         System.Windows.Forms.Cursor.Hide()
+        'カーソルを最右側に持って行き隠す
+        System.Windows.Forms.Cursor.Position = New Point(System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width, Me.Height)
 
     End Sub
 
@@ -86,7 +97,7 @@
             'Pingオブジェクトの作成
             Dim p As New System.Net.NetworkInformation.Ping()
             '"www.yahoo.com"にPingを送信する
-            Dim reply As System.Net.NetworkInformation.PingReply = p.Send(debugIP, 1000)
+            Dim reply As System.Net.NetworkInformation.PingReply = p.Send(debugIP, 1500)
             '結果を取得
             If reply.Status = System.Net.NetworkInformation.IPStatus.Success Then
                 Console.WriteLine("Reply from {0}:bytes={1} time={2}ms TTL={3}", reply.Address, reply.Buffer.Length, reply.RoundtripTime, reply.Options.Ttl)
@@ -97,8 +108,8 @@
             End If
             p.Dispose()
         Else
-                Console.WriteLine("ネットワークに接続されていません")
-                checkLAN = -1
+            Console.WriteLine("ネットワークに接続されていません")
+            checkLAN = -1
         End If
     End Function
 
@@ -150,7 +161,7 @@
         Debug.WriteLine(e.KeyCode)
         If e.KeyCode = Keys.Escape Then
             If Me.WindowState = FormWindowState.Maximized Then
-                'カーソルを非表示にする 
+                'カーソルを表示にする 
                 System.Windows.Forms.Cursor.Show()
                 Me.WindowState = FormWindowState.Normal
                 Me.FormBorderStyle = Windows.Forms.FormBorderStyle.Sizable
@@ -158,8 +169,12 @@
                 Me.Height = 640
                 Me.TopMost = False
             Else
+                Me.Width = System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width
+                Me.Height = System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height - 50
                 'カーソルを非表示にする 
                 System.Windows.Forms.Cursor.Hide()
+                System.Windows.Forms.Cursor.Position = New Point(System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width, Me.Height)
+                Console.WriteLine(Me.Width & ", " & Me.Height)
                 Me.FormBorderStyle = FormBorderStyle.None
                 Me.WindowState = FormWindowState.Maximized
                 Me.TopMost = True
@@ -176,15 +191,13 @@
             If brows_flg Then
                 'webページを表示
                 WebBrowser1.Url = New Uri(url)
-                Console.WriteLine("send mail to administrator:brows page")
                 sendMail("chanege online screen." + vbCrLf + "statuscode is " + statuscode + vbCrLf + "clock flag is " + flag.ToString)
                 brows_flg = False
             End If
         Else
             If WebBrowser1.Url <> error_uri Then
-                If statuscode <> -1 AndAlso My.Computer.Network.Ping(mailserver, 500) AndAlso sendmail_flg Then
+                If statuscode <> -1 AndAlso My.Computer.Network.Ping(mailserver, 500) Then
                     'メール飛ばす処理
-                    Console.WriteLine("send mail to administrator:error message")
                     sendMail("chanege offline screen." + vbCrLf + "statuscode is " + statuscode + vbCrLf + "clock flag is " + flag.ToString)
                 End If
                 '表示を変える処理
@@ -197,30 +210,36 @@
     End Sub
 
     Private Sub sendMail(mymessage As String)
-        '送信者
-        Dim senderMail As String = "solar-power-display@showa-aircraft.co.jp"
-        '宛先
-        Dim recipientMail As String = mail_address
-        '件名
-        Dim subject As String = "solar power display admin mail"
-        '本文
-        Dim body As String = mymessage
+        If sendmail_flg Then
+            '送信者
+            Dim senderMail As String = sender_address
+            '宛先
+            Dim recipientMail As String = mail_address
+            '件名
+            Dim subject As String = mail_title
+            '本文
+            Dim body As String = mymessage
 
-        'SmtpClientオブジェクトを作成する
-        Dim sc As New System.Net.Mail.SmtpClient()
-        'SMTPサーバーを指定する
-        sc.Host = mailserver
-        'ポート番号を指定する（既定値は25）
-        sc.Port = 25 'メールを送信する
+            'SmtpClientオブジェクトを作成する
+            Dim sc As New System.Net.Mail.SmtpClient()
+            'SMTPサーバーを指定する
+            sc.Host = mailserver
+            'ポート番号を指定する（既定値は25）
+            sc.Port = 25 'メールを送信する
 
-        Try
-            sc.Send(senderMail, recipientMail, subject, body)
-        Catch ex As Exception
-            Console.WriteLine(ex)
-        Finally
-            '後始末（.NET Framework 4.0以降）
-            sc.Dispose()
-        End Try
+            Try
+                sc.Send(senderMail, recipientMail, subject, body)
+            Catch ex As Exception
+                Console.WriteLine(ex)
+            Finally
+                '後始末（.NET Framework 4.0以降）
+                sc.Dispose()
+            End Try
+            Console.WriteLine("send mail:" & mymessage)
+        Else
+            Console.WriteLine("don't send mail.")
+        End If
+
     End Sub
 
     Private Sub importSetting()
@@ -261,13 +280,17 @@
                     Case "timerInterval"        ' タイマーインターバル
                         Timer1.Interval = setting_item(1)
                     Case "mailFlag"             ' send mail flag
-                        sendmail_flg = setting_item(1)
+                        sendmail_flg = Convert.ToBoolean(setting_item(1))
+                    Case "senderAddress"
+                        sender_address = setting_item(1)
                     Case "mailAddress"
                         mail_address = setting_item(1)
                     Case "startH"
                         start_h = setting_item(1)
                     Case "stopH"
                         stop_h = setting_item(1)
+                    Case "mailTitle"
+                        mail_title = setting_item(1)
                     Case Else
                         ' それ以外
                         Console.WriteLine("不明な設定:" & setting_item(1))
